@@ -1,5 +1,5 @@
 import tensorflow as tf
-from rq_vae import RqVae
+from modules.rq_vae import RqVae
 from typing import Union, List
 
 class SemanticIds(tf.keras.layers.Layer):
@@ -10,12 +10,13 @@ class SemanticIds(tf.keras.layers.Layer):
         self.decoder = tf.keras.layers.Dense(codebook_dim)
 
     def call(self, dense_content_embedding: tf.Tensor, training=True) -> tf.Tensor:
-        r_0 = self.encoder(dense_content_embedding)
+        z = self.encoder(dense_content_embedding)
         if training:
-            reconstructed_latent_vector = self.semantic_id_generator(r_0)
-            return self.decoder(reconstructed_latent_vector)
+            layer_wise_reconstruction = self.semantic_id_generator(z) # shape (batch_size, codebook_dim, num_layers)
+            reconstructed_latent_vector = tf.reduce_sum(layer_wise_reconstruction, axis=-1) # shape (batch_size, codebook_dim)
+            return z, layer_wise_reconstruction, self.decoder(reconstructed_latent_vector)
         else:
-            return self.semantic_id_generator(r_0)
+            return self.semantic_id_generator(r_0) # shape (batch_size, num_layers) dtype int32
 
 
 class SemanticIdGenerator(tf.keras.layers.Layer):
@@ -33,9 +34,9 @@ class SemanticIdGenerator(tf.keras.layers.Layer):
             reconstruction = []
             for rq_vae in self.rq_vae_layers:
                 rq_vae_output = rq_vae(residual)
-                reconstruction.append(rq_vae_output[1])
+                reconstruction.append(rq_vae_output[2])
                 residual = rq_vae_output[1]
-            return tf.reduce_sum(tf.stack(reconstruction, axis=-1), axis=-1)
+            return tf.stack(reconstruction, axis=-1)
         else:
             layer_indices = []
             for rq_vae in self.rq_vae_layers:
