@@ -16,7 +16,5 @@ class RqVae(tf.keras.layers.Layer):
         closest_codebook_index = tf.argmin(distances, axis=1)
         codebook_embedding = tf.gather(self.codebook_embeddings, closest_codebook_index)
         next_residual = previous_residual - codebook_embedding
-        return (closest_codebook_index, next_residual)
+        return (closest_codebook_index, next_residual, codebook_embedding)
 
-
-        
